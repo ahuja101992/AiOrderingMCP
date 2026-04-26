@@ -1,4 +1,5 @@
-/trucks.json
 target/
-.idea/
+trucks.json
 *.iml
+.idea/
+.DS_Store

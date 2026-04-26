@@ -1,0 +1,12 @@
+{
+  "joes_tacos": {
+    "access_token": "EAAA_REPLACE_ME_WITH_REAL_SANDBOX_TOKEN",
+    "location_id": "L_REPLACE_WITH_REAL_LOCATION_ID",
+    "environment": "sandbox"
+  },
+  "burger_bus": {
+    "access_token": "EAAA_DIFFERENT_TOKEN_IF_YOU_HAVE_A_SECOND_SANDBOX_ACCOUNT",
+    "location_id": "L_DIFFERENT_LOCATION_ID",
+    "environment": "sandbox"
+  }
+}

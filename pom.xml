@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <groupId>org.personal</groupId>
+    <artifactId>ai-ordering-mcp</artifactId>
+    <version>0.1.0-SNAPSHOT</version>
+    <packaging>jar</packaging>
+
+    <name>AI Ordering MCP</name>
+    <description>MCP server exposing a Square-backed food truck to LLM clients</description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- pinned versions; bump deliberately -->
+        <mcp.sdk.version>1.1.1</mcp.sdk.version>
+        <square.sdk.version>41.0.0.20240821</square.sdk.version>
+        <jackson.version>2.17.2</jackson.version>
+        <slf4j.version>2.0.13</slf4j.version>
+        <jetty.version>12.0.16</jetty.version>
+    </properties>
+
+    <dependencies>
+        <!-- MCP Java SDK (server side; pulls in mcp-core).
+             We exclude the transitive Jackson 3 implementation because we want
+             Jackson 2 throughout this project, matching the Square SDK's choice.
+             Without these exclusions, Jackson 3 wins on the classpath and the
+             tool result serializer hits NoSuchFieldError because Jackson 2's
+             annotations jar disagrees with Jackson 3's runtime expectations. -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp</artifactId>
+            <version>${mcp.sdk.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.modelcontextprotocol.sdk</groupId>
+                    <artifactId>mcp-json-jackson3</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>tools.jackson.core</groupId>
+                    <artifactId>jackson-databind</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>tools.jackson.core</groupId>
+                    <artifactId>jackson-core</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>tools.jackson.core</groupId>
+                    <artifactId>jackson-annotations</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
+        <!-- Jackson 2 JSON impl for MCP (provides JacksonMcpJsonMapper). -->
+        <dependency>
+            <groupId>io.modelcontextprotocol.sdk</groupId>
+            <artifactId>mcp-json-jackson2</artifactId>
+            <version>${mcp.sdk.version}</version>
+        </dependency>
+
+        <!-- Square SDK — same one your seeder uses -->
+        <dependency>
+            <groupId>com.squareup</groupId>
+            <artifactId>square</artifactId>
+            <version>${square.sdk.version}</version>
+        </dependency>
+
+        <!-- Jackson 2 — used by tool input/output schemas in our code -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- Embedded Jetty 12 (EE10 = Servlet 6, jakarta.servlet namespace)
+             to host the MCP HTTP transport. EE10 is required because the MCP SDK's
+             HttpServletStreamableServerTransportProvider extends jakarta.servlet.http.HttpServlet. -->
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-server</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty.ee10</groupId>
+            <artifactId>jetty-ee10-servlet</artifactId>
+            <version>${jetty.version}</version>
+        </dependency>
+
+        <!-- SLF4J + simple impl. With HTTP transport stdout is no longer
+             reserved for protocol traffic, but we keep stderr logging anyway
+             for consistency. -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.version}</version>
+        </dependency>
+
+        <!-- test -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>5.10.3</version>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- shaded fat-jar so Claude Desktop can run a single java -jar command -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.3</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>all</shadedClassifierName>
+                            <transformers>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>org.personal.mcp.McpServerMain</mainClass>
+                                </transformer>
+                                <transformer
+                                    implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.2.5</version>
+            </plugin>
+        </plugins>
+    </build>
+</project>

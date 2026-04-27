@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connect your truck — OrderAI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #0d0d0b; --paper: #f0ebe0; --stone: #b8b0a0; --dim: #5a5550;
+      --amber: #c8922a; --amber-l: #d4a84b; --rule: #252318; --surface: #141410;
+      --green: #3db870; --red: #c0504a;
+    }
+    html { background: var(--ink); color: var(--paper); font-family: 'Outfit', sans-serif; }
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px;
+    }
+
+    .page { max-width: 520px; margin: 0 auto; padding: 3.5rem 1.5rem 5rem; }
+
+    .back { display: inline-flex; align-items: center; gap: 6px; color: var(--dim); font-size: .82rem; text-decoration: none; margin-bottom: 2.5rem; }
+    .back:hover { color: var(--stone); }
+
+    .pg-header { margin-bottom: 2.5rem; }
+    .pg-eyebrow { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); margin-bottom: .75rem; }
+    h1 { font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; line-height: 1.15; margin-bottom: .6rem; }
+    .pg-sub { font-size: .88rem; color: var(--stone); line-height: 1.65; font-weight: 300; }
+
+    /* progress */
+    .progress { display: flex; gap: 6px; margin-bottom: 2.5rem; }
+    .pip { flex: 1; height: 2px; border-radius: 2px; background: var(--rule); transition: background .3s; }
+    .pip.on { background: var(--amber); }
+    .pip.done { background: var(--green); }
+
+    /* form */
+    .section { display: flex; flex-direction: column; gap: 1.1rem; }
+    .section.hidden { display: none; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    label { font-size: .8rem; font-weight: 500; color: var(--stone); }
+    label small { color: var(--dim); font-weight: 400; }
+    input, select {
+      background: var(--surface); border: 1px solid var(--rule);
+      color: var(--paper); border-radius: 7px; padding: 11px 13px;
+      font-size: .9rem; font-family: inherit; width: 100%;
+      transition: border-color .15s;
+    }
+    input:focus, select:focus { outline: none; border-color: var(--amber); }
+    input::placeholder { color: var(--dim); }
+    select option { background: var(--surface); }
+    .hint { font-size: .76rem; color: var(--dim); line-height: 1.5; }
+    .hint a { color: var(--amber); text-decoration: none; }
+    .hint a:hover { text-decoration: underline; }
+
+    .btn {
+      padding: 13px; border-radius: 7px; font-size: .92rem; font-weight: 500;
+      font-family: inherit; cursor: pointer; border: none; width: 100%;
+      transition: .15s;
+    }
+    .btn-amber { background: var(--amber); color: var(--ink); }
+    .btn-amber:hover { background: var(--amber-l); }
+    .btn-amber:disabled { opacity: .35; cursor: not-allowed; }
+
+    .err { background: #2a1414; border: 1px solid #5a2020; color: #e07070; border-radius: 7px; padding: 11px 13px; font-size: .84rem; display: none; }
+    .err.show { display: block; }
+
+    /* success */
+    .success { display: none; flex-direction: column; gap: 1.5rem; animation: up .4s ease both; }
+    .success.show { display: flex; }
+
+    .success-hed { font-family: 'Playfair Display', serif; font-size: 1.7rem; font-weight: 700; }
+    .success-sub { font-size: .88rem; color: var(--stone); line-height: 1.65; margin-top: -.5rem; }
+
+    .qr-card {
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 12px;
+      padding: 2rem; display: flex; flex-direction: column; align-items: center; gap: 1.2rem;
+    }
+    #qr-box { width: 180px; height: 180px; }
+    #qr-box canvas { border-radius: 6px; }
+
+    .url-row { display: flex; gap: 8px; width: 100%; }
+    .url-text { flex: 1; background: #0d0d0b; border: 1px solid var(--rule); color: var(--dim); border-radius: 6px; padding: 9px 12px; font-size: .78rem; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .copy-btn { padding: 9px 16px; background: var(--surface); border: 1px solid var(--rule); color: var(--stone); border-radius: 6px; font-size: .8rem; font-family: inherit; cursor: pointer; white-space: nowrap; transition: .15s; }
+    .copy-btn:hover { border-color: var(--amber); color: var(--amber); }
+
+    .info-list { width: 100%; display: flex; flex-direction: column; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 8px; overflow: hidden; }
+    .info-row { background: var(--surface); padding: .75rem 1rem; display: flex; justify-content: space-between; font-size: .8rem; }
+    .info-row span:first-child { color: var(--dim); }
+    .info-row span:last-child { font-family: monospace; color: var(--stone); font-size: .76rem; }
+
+    .again-btn { padding: 13px; border-radius: 7px; font-size: .88rem; border: 1px solid var(--rule); background: transparent; color: var(--stone); font-family: inherit; cursor: pointer; width: 100%; text-align: center; text-decoration: none; display: block; transition: .15s; }
+    .again-btn:hover { border-color: var(--stone); color: var(--paper); }
+
+    @keyframes up { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body>
+<div class="page">
+  <a href="/" class="back">← Back</a>
+
+  <div class="pg-header">
+    <div class="pg-eyebrow">Merchant onboarding</div>
+    <h1>Connect your truck</h1>
+    <p class="pg-sub">Link your Square account and get a QR code your customers can scan to chat with your menu.</p>
+  </div>
+
+  <div class="progress">
+    <div class="pip on" id="p1"></div>
+    <div class="pip" id="p2"></div>
+  </div>
+
+  <!-- step 1 -->
+  <div class="section" id="s1">
+    <div class="field">
+      <label>Business name</label>
+      <input type="text" id="name" placeholder="Joe's Tacos" autocomplete="organization">
+    </div>
+    <div class="field">
+      <label>Truck ID <small>(appears in your URL)</small></label>
+      <input type="text" id="truck_id" placeholder="joes_tacos">
+      <span class="hint">Lowercase letters, numbers, underscores. Becomes <code style="color:var(--amber)">/chat/joes_tacos</code></span>
+    </div>
+    <button class="btn btn-amber" onclick="step2()">Continue →</button>
+  </div>
+
+  <!-- step 2 -->
+  <div class="section hidden" id="s2">
+    <div class="field">
+      <label>Square Access Token</label>
+      <input type="password" id="access_token" placeholder="EAAAl7...">
+      <span class="hint">
+        <a href="https://developer.squareup.com/apps" target="_blank">developer.squareup.com</a>
+        → your app → Credentials → Sandbox Access Token
+      </span>
+    </div>
+    <div class="field">
+      <label>Square Location ID</label>
+      <input type="text" id="location_id" placeholder="LNDA4DNPV4JS6">
+      <span class="hint">Found on the same Credentials page, under Locations.</span>
+    </div>
+    <div class="field">
+      <label>Environment</label>
+      <select id="environment">
+        <option value="sandbox">Sandbox — for testing</option>
+        <option value="production">Production — live account</option>
+      </select>
+    </div>
+    <div class="err" id="err"></div>
+    <button class="btn btn-amber" id="submit-btn" onclick="submit()">Connect truck</button>
+  </div>
+
+  <!-- success -->
+  <div class="success" id="success">
+    <div>
+      <div class="success-hed">You're live ✓</div>
+      <p class="success-sub">Print the QR code and display it where customers can see it.</p>
+    </div>
+
+    <div class="qr-card">
+      <div id="qr-box"></div>
+      <div class="url-row">
+        <div class="url-text" id="url-text"></div>
+        <button class="copy-btn" onclick="copy()">Copy</button>
+      </div>
+    </div>
+
+    <div class="info-list">
+      <div class="info-row"><span>Truck ID</span><span id="i-id"></span></div>
+      <div class="info-row"><span>MCP endpoint</span><span id="i-mcp"></span></div>
+    </div>
+
+    <a href="/onboard" class="again-btn">Register another truck</a>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  let chatUrl = '';
+
+  document.getElementById('name').addEventListener('input', e => {
+    document.getElementById('truck_id').value =
+      e.target.value.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  });
+
+  function step2() {
+    const name = document.getElementById('name').value.trim();
+    const id   = document.getElementById('truck_id').value.trim();
+    if (!name || !id)                      { alert('Please fill in both fields.'); return; }
+    if (!/^[a-z0-9_]+$/.test(id))         { alert('Truck ID: lowercase letters, numbers, underscores only.'); return; }
+    document.getElementById('s1').classList.add('hidden');
+    document.getElementById('s2').classList.remove('hidden');
+    document.getElementById('p1').classList.replace('on', 'done');
+    document.getElementById('p2').classList.add('on');
+  }
+
+  async function submit() {
+    const btn = document.getElementById('submit-btn');
+    const err = document.getElementById('err');
+    err.classList.remove('show');
+    btn.textContent = 'Connecting…'; btn.disabled = true;
+
+    const body = {
+      name:         document.getElementById('name').value.trim(),
+      truck_id:     document.getElementById('truck_id').value.trim(),
+      access_token: document.getElementById('access_token').value.trim(),
+      location_id:  document.getElementById('location_id').value.trim(),
+      environment:  document.getElementById('environment').value,
+    };
+
+    try {
+      const res  = await fetch('/api/register', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body) });
+      const data = await res.json();
+      if (!res.ok) {
+        err.textContent = data.error || 'Something went wrong. Check your credentials.';
+        err.classList.add('show');
+        btn.textContent = 'Connect truck'; btn.disabled = false;
+        return;
+      }
+
+      chatUrl = data.chat_url;
+      document.getElementById('s2').classList.add('hidden');
+      document.getElementById('success').classList.add('show');
+      document.getElementById('p2').classList.replace('on', 'done');
+      document.getElementById('url-text').textContent = chatUrl;
+      document.getElementById('i-id').textContent  = data.truck_id;
+      document.getElementById('i-mcp').textContent = data.mcp_url;
+
+      new QRCode(document.getElementById('qr-box'), {
+        text: chatUrl, width: 180, height: 180,
+        colorDark: '#c8922a', colorLight: '#0d0d0b',
+        correctLevel: QRCode.CorrectLevel.M,
+      });
+    } catch(e) {
+      err.textContent = 'Network error — is the server running?';
+      err.classList.add('show');
+      btn.textContent = 'Connect truck'; btn.disabled = false;
+    }
+  }
+
+  function copy() {
+    navigator.clipboard.writeText(chatUrl).then(() => {
+      const b = event.target; b.textContent = 'Copied!';
+      setTimeout(() => b.textContent = 'Copy', 1800);
+    });
+  }
+</script>
+</body>
+</html>

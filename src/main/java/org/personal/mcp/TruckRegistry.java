@@ -63,15 +63,22 @@ public class TruckRegistry {
 
     private static final Logger log = LoggerFactory.getLogger(TruckRegistry.class);
 
+    // ConcurrentHashMap so live registration is thread-safe
     private final Map<String, TruckCredentials> trucks;
 
     public TruckRegistry(Map<String, TruckCredentials> trucks) {
-        this.trucks = Map.copyOf(trucks);
+        this.trucks = new java.util.concurrent.ConcurrentHashMap<>(trucks);
     }
 
     public Optional<TruckCredentials> lookup(String truckId) {
         if (truckId == null || truckId.isBlank()) return Optional.empty();
         return Optional.ofNullable(trucks.get(truckId));
+    }
+
+    /** Register a truck at runtime without a server restart. */
+    public void register(String truckId, TruckCredentials creds) {
+        trucks.put(truckId, creds);
+        log.info("Live-registered truck '{}'", truckId);
     }
 
     public int size() {

@@ -166,7 +166,7 @@ public class SquareFoodTruckClient {
             do {
                 SearchCatalogItemsRequest request = new SearchCatalogItemsRequest.Builder()
                         .productTypes(List.of("FOOD_AND_BEV"))
-                        .enabledLocationIds(List.of(locationId))   // ← add this
+                        .enabledLocationIds(List.of(locationId))   // ← this line must be present
                         .limit(100)
                         .cursor(cursor)
                         .build();

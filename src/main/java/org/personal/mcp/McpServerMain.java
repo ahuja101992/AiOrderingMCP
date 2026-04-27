@@ -89,8 +89,23 @@ public class McpServerMain {
             log.info("Registered truck '{}' at /truck/{}/mcp", truckId, truckId);
         }
 
-        // Health check — doesn't touch MCP or Square at all.
-        context.addServlet(new ServletHolder(new HealthServlet()), "/health");
+        // Live registration callback
+        RegisterServlet.NewTruckCallback onNewTruck = (truckId, creds) -> {
+            try {
+                McpSyncServer newServer = buildTruckServer(truckId, clientFactory, context);
+                mcpServers.add(newServer);
+                log.info("Live-added MCP server for new truck '{}'", truckId);
+            } catch (Exception e) {
+                log.error("Failed to start MCP server for truck '{}'", truckId, e);
+            }
+        };
+
+        // UI + API servlets (order matters: specific paths before wildcard)
+        context.addServlet(new ServletHolder(new RegisterServlet(registry, onNewTruck)), "/api/register");
+        context.addServlet(new ServletHolder(new ChatServlet(registry)),                 "/api/chat");
+        context.addServlet(new ServletHolder(new TruckInfoServlet(registry)),            "/api/trucks/*");
+        context.addServlet(new ServletHolder(new HealthServlet()),                       "/health");
+        context.addServlet(new ServletHolder(new StaticFileServlet()),                   "/*");
 
         jetty.setHandler(context);
 
@@ -165,28 +180,20 @@ public class McpServerMain {
                 .name("get_menu")
                 .description(
                         "Returns the food truck's full menu. Each item includes name, " +
-                                "description, price, dietary preferences (e.g. vegan, gluten_free, " +
-                                "dairy_free), and ingredients. Use this when the customer asks " +
-                                "what's available, what's popular, or wants to browse options. " +
-                                "When answering allergen questions, prefer check_allergen which " +
-                                "returns the same data with a usage hint."
+                        "description, price, dietary preferences (e.g. vegan, gluten_free, " +
+                        "dairy_free), and ingredients. Use this when the customer asks " +
+                        "what's available, what's popular, or wants to browse options. " +
+                        "When answering allergen questions, prefer check_allergen which " +
+                        "returns the same data with a usage hint."
                 )
                 .inputSchema(schema)
                 .build();
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> {
-                    try {
-                        Object refreshArg = request.arguments() != null ? request.arguments().get("refresh") : null;
-                        boolean refresh = refreshArg instanceof Boolean b ? b : false;
-                        return wrapJson(tools.getMenu(refresh));
-                    } catch (Exception e) {
-                        log.error("get_menu failed for truck", e);
-                        return CallToolResult.builder()
-                                .addContent(new TextContent("{\"error\": \"" + e.getMessage() + "\"}"))
-                                .isError(true)
-                                .build();
-                    }
+                    Object refreshArg = request.arguments() != null ? request.arguments().get("refresh") : null;
+                    boolean refresh = refreshArg instanceof Boolean b ? b : false;
+                    return wrapJson(tools.getMenu(refresh));
                 })
                 .build();
     }
@@ -204,14 +211,14 @@ public class McpServerMain {
                 .name("check_allergen")
                 .description(
                         "Look up a specific menu item's ingredients and dietary tags so " +
-                                "you can determine whether it's safe for someone with a given " +
-                                "allergen or dietary restriction. Returns structured data — you " +
-                                "should reason over it and explain to the customer in plain " +
-                                "language. IMPORTANT: if ingredients and dietary_preferences are " +
-                                "both empty, tell the customer the truck hasn't entered allergen " +
-                                "data for this item and they should ask staff directly. Never " +
-                                "fabricate ingredient information. For severe allergies, always " +
-                                "recommend the customer confirm with staff regardless."
+                        "you can determine whether it's safe for someone with a given " +
+                        "allergen or dietary restriction. Returns structured data — you " +
+                        "should reason over it and explain to the customer in plain " +
+                        "language. IMPORTANT: if ingredients and dietary_preferences are " +
+                        "both empty, tell the customer the truck hasn't entered allergen " +
+                        "data for this item and they should ask staff directly. Never " +
+                        "fabricate ingredient information. For severe allergies, always " +
+                        "recommend the customer confirm with staff regardless."
                 )
                 .inputSchema(schema)
                 .build();
@@ -232,26 +239,14 @@ public class McpServerMain {
                 .name("get_wait_time")
                 .description(
                         "Returns the current estimated wait time for a pickup order. " +
-                                "Approximate — based on the number of active orders and their prep times. " +
-                                "Use when the customer asks how long they'll wait or whether to order ahead."
+                        "Approximate — based on the number of active orders and their prep times. " +
+                        "Use when the customer asks how long they'll wait or whether to order ahead."
                 )
                 .inputSchema(schema)
                 .build();
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
-                .callHandler((exchange, request) -> {
-                    try {
-                        Object refreshArg = request.arguments() != null ? request.arguments().get("refresh") : null;
-                        boolean refresh = refreshArg instanceof Boolean b ? b : false;
-                        return wrapJson(tools.getMenu(refresh));
-                    } catch (Exception e) {
-                        log.error("get_time failed for truck", e);
-                        return CallToolResult.builder()
-                                .addContent(new TextContent("{\"error\": \"" + e.getMessage() + "\"}"))
-                                .isError(true)
-                                .build();
-                    }
-                })
+                .callHandler((exchange, request) -> wrapJson(tools.getWaitTime()))
                 .build();
     }
 

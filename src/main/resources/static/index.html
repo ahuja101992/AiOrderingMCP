@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OrderAI — Your food truck, answered.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Outfit:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --ink: #0d0d0b; --paper: #f0ebe0; --stone: #b8b0a0; --dim: #5a5550;
+      --amber: #c8922a; --amber-l: #d4a84b; --rule: #252318; --surface: #141410;
+    }
+    html { background: var(--ink); color: var(--paper); font-family: 'Outfit', sans-serif; scroll-behavior: smooth; }
+    body { min-height: 100vh; }
+
+    /* grain */
+    body::after {
+      content: ''; position: fixed; inset: 0; z-index: 999; pointer-events: none; opacity: .04;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      background-size: 180px;
+    }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* nav */
+    nav { padding: 1.6rem 0; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--rule); animation: up .5s ease both; }
+    .logo { font-family: 'Playfair Display', serif; font-size: 1.15rem; color: var(--paper); text-decoration: none; }
+    .logo b { color: var(--amber); font-weight: 700; }
+    .nav-btn { padding: 8px 20px; border: 1px solid var(--amber); border-radius: 6px; color: var(--amber); font-size: .82rem; text-decoration: none; transition: .2s; }
+    .nav-btn:hover { background: var(--amber); color: var(--ink); }
+
+    /* hero */
+    .hero { padding: 7rem 0 5rem; display: grid; grid-template-columns: 1fr 380px; gap: 5rem; align-items: center; }
+    @media(max-width:740px){ .hero { grid-template-columns:1fr; padding:4rem 0 3rem; } .hero-right { display:none; } }
+
+    .eyebrow { font-size: .72rem; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; color: var(--amber); margin-bottom: 1.4rem; display: flex; align-items: center; gap: 10px; animation: up .5s .1s ease both; }
+    .eyebrow::before { content: ''; width: 20px; height: 1px; background: var(--amber); }
+
+    h1 { font-family: 'Playfair Display', serif; font-size: clamp(2.6rem, 5vw, 4rem); font-weight: 900; line-height: 1.07; letter-spacing: -.02em; margin-bottom: 1.4rem; animation: up .5s .15s ease both; }
+    h1 i { font-style: italic; color: var(--amber); }
+
+    .lead { font-size: .97rem; line-height: 1.75; color: var(--stone); font-weight: 300; max-width: 400px; margin-bottom: 2.2rem; animation: up .5s .2s ease both; }
+    .btns { display: flex; gap: 10px; flex-wrap: wrap; animation: up .5s .25s ease both; }
+    .btn-a { padding: 13px 28px; background: var(--amber); color: var(--ink); border-radius: 7px; font-size: .92rem; font-weight: 500; text-decoration: none; transition: .15s; }
+    .btn-a:hover { background: var(--amber-l); }
+    .btn-b { padding: 13px 28px; border: 1px solid var(--rule); color: var(--stone); border-radius: 7px; font-size: .92rem; text-decoration: none; transition: .15s; }
+    .btn-b:hover { border-color: var(--stone); color: var(--paper); }
+
+    /* mock chat */
+    .mock { background: var(--surface); border: 1px solid var(--rule); border-radius: 14px; overflow: hidden; animation: up .5s .3s ease both; }
+    .mock-head { padding: .9rem 1.2rem; border-bottom: 1px solid var(--rule); display: flex; align-items: center; gap: 8px; font-size: .78rem; color: var(--stone); }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #3db870; }
+    .mock-body { padding: 1rem 1.2rem; display: flex; flex-direction: column; gap: 10px; }
+    .mb { display: flex; gap: 8px; }
+    .mb.u { flex-direction: row-reverse; }
+    .bbl { padding: 9px 13px; border-radius: 11px; font-size: .78rem; line-height: 1.5; max-width: 85%; }
+    .mb.ai .bbl { background: #1c1c18; border: 1px solid var(--rule); color: var(--stone); border-bottom-left-radius: 3px; }
+    .mb.u .bbl  { background: var(--amber); color: var(--ink); border-bottom-right-radius: 3px; }
+    .tag { display: inline-block; background: #1a2a1a; color: #5dba7d; border: 1px solid #2a4a2a; padding: 1px 7px; border-radius: 4px; font-size: .68rem; }
+
+    /* rule */
+    hr { border: none; border-top: 1px solid var(--rule); }
+
+    /* sections */
+    .sec { padding: 5rem 0; }
+    .sec-label { font-size: .7rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-bottom: 2.5rem; display: flex; align-items: center; gap: 12px; }
+    .sec-label::after { content: ''; flex: 1; height: 1px; background: var(--rule); }
+
+    /* steps */
+    .steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+    @media(max-width:580px){ .steps { grid-template-columns: 1fr; } }
+    .step { background: var(--surface); padding: 2rem 1.6rem; }
+    .sn { font-family: 'Playfair Display', serif; font-size: 2.5rem; font-weight: 900; color: var(--rule); line-height: 1; margin-bottom: 1rem; }
+    .st { font-size: .92rem; font-weight: 500; margin-bottom: .4rem; }
+    .sd { font-size: .82rem; color: var(--dim); line-height: 1.6; }
+
+    /* cases */
+    .cases { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--rule); border: 1px solid var(--rule); border-radius: 10px; overflow: hidden; }
+    @media(max-width:540px){ .cases { grid-template-columns: 1fr; } }
+    .case { background: var(--surface); padding: 1.8rem 1.6rem; }
+    .ci { font-size: 1.25rem; margin-bottom: .85rem; }
+    .ct { font-size: .9rem; font-weight: 500; margin-bottom: .4rem; }
+    .cd { font-size: .82rem; color: var(--dim); line-height: 1.6; }
+
+    /* footer */
+    footer { border-top: 1px solid var(--rule); padding: 1.8rem 0; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; font-size: .78rem; color: var(--dim); }
+
+    @keyframes up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <a href="/" class="logo">Order<b>AI</b></a>
+    <a href="/onboard" class="nav-btn">Connect your truck →</a>
+  </nav>
+</div>
+
+<div class="wrap">
+  <div class="hero">
+    <div>
+      <div class="eyebrow">MCP + Square POS</div>
+      <h1>Your food truck,<br><i>answered.</i></h1>
+      <p class="lead">Customers scan a QR code and ask your AI assistant anything — allergens, wait times, what's popular. Real answers from your actual Square catalog.</p>
+      <div class="btns">
+        <a href="/onboard" class="btn-a">Connect your truck</a>
+        <a href="#how" class="btn-b">How it works ↓</a>
+      </div>
+    </div>
+    <div class="hero-right">
+      <div class="mock">
+        <div class="mock-head"><div class="dot"></div> Joe's Tacos · AI Assistant</div>
+        <div class="mock-body">
+          <div class="mb u"><div class="bbl">Do the noodles have peanuts?</div></div>
+          <div class="mb ai"><div class="bbl">Yes — Spicy Peanut Noodles contain <span class="tag">peanut sauce</span>. The Vegan Street Tacos are <span class="tag">dairy_free</span> + <span class="tag">vegan</span> and safe. Confirm with staff for severe allergies.</div></div>
+          <div class="mb u"><div class="bbl">How long is the wait?</div></div>
+          <div class="mb ai"><div class="bbl">3 active orders ahead — about 20 min estimated.</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<div class="wrap">
+  <div class="sec" id="how">
+    <div class="sec-label">How it works</div>
+    <div class="steps">
+      <div class="step"><div class="sn">01</div><div class="st">Connect Square</div><div class="sd">Enter your credentials. We validate them and register your truck instantly. No new hardware.</div></div>
+      <div class="step"><div class="sn">02</div><div class="st">Print the QR</div><div class="sd">Get a QR code linking to your truck's AI chat. Stick it anywhere customers can see it.</div></div>
+      <div class="step"><div class="sn">03</div><div class="st">Customers chat</div><div class="sd">They scan, ask, get real answers from your live catalog — allergens, wait times, recommendations.</div></div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<div class="wrap">
+  <div class="sec">
+    <div class="sec-label">Who it helps</div>
+    <div class="cases">
+      <div class="case"><div class="ci">🥜</div><div class="ct">Allergy-conscious customers</div><div class="cd">Reliable allergen answers from structured ingredient data — not from whoever's at the window today.</div></div>
+      <div class="case"><div class="ci">⏱</div><div class="ct">Customers who plan ahead</div><div class="cd">Check real wait time before joining the line. Know what to order before reaching the window.</div></div>
+      <div class="case"><div class="ci">♿</div><div class="ct">Accessibility needs</div><div class="cd">A calm chat interface removes the pressure of verbal ordering at a busy window.</div></div>
+      <div class="case"><div class="ci">👨‍🍳</div><div class="ct">Lean kitchen crews</div><div class="cd">Every question the AI handles is time your staff gets back. More hands in the kitchen.</div></div>
+    </div>
+  </div>
+</div>
+
+<hr>
+
+<div class="wrap">
+  <footer>
+    <span>OrderAI — Apache 2.0 open source</span>
+    <span>Built with MCP + Square API</span>
+  </footer>
+</div>
+</body>
+</html>

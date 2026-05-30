@@ -150,26 +150,33 @@ public class TruckRegistry {
         return node.get(field).asText();
     }
 
-    /** A truck's Square credentials. */
+    /** A truck's credentials for their POS system. */
     public static final class TruckCredentials {
         public final String accessToken;
         public final String refreshToken;
         public final String locationId;
         public final String environment;
+        public final String posType;
         /** Unix millis when accessToken expires (0 if unknown or never expires). */
         public final long accessTokenExpiresAt;
 
         public TruckCredentials(String accessToken, String refreshToken,
                                 String locationId, String environment) {
-            this(accessToken, refreshToken, locationId, environment, 0);
+            this(accessToken, refreshToken, locationId, environment, "square", 0);
         }
 
         public TruckCredentials(String accessToken, String refreshToken,
                                 String locationId, String environment, long accessTokenExpiresAt) {
+            this(accessToken, refreshToken, locationId, environment, "square", accessTokenExpiresAt);
+        }
+
+        public TruckCredentials(String accessToken, String refreshToken,
+                                String locationId, String environment, String posType, long accessTokenExpiresAt) {
             this.accessToken             = Objects.requireNonNull(accessToken, "accessToken");
             this.refreshToken            = refreshToken;
             this.locationId              = Objects.requireNonNull(locationId, "locationId");
             this.environment             = environment == null ? "sandbox" : environment;
+            this.posType                 = posType == null ? "square" : posType;
             this.accessTokenExpiresAt    = accessTokenExpiresAt;
         }
 

@@ -1,0 +1,17 @@
+{
+  "test_truck": [
+    {
+      "order_id": "order_001",
+      "customer_name": "Alice Johnson",
+      "items": [
+        {
+          "variation_id": "var_123",
+          "quantity": 2
+        }
+      ],
+      "pickup_time": "2026-05-30T15:30:00Z",
+      "created_at": 1748764200000,
+      "status": "pending"
+    }
+  ]
+}

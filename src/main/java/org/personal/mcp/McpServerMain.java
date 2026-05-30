@@ -108,6 +108,7 @@ public class McpServerMain {
         context.addServlet(new ServletHolder(new RegisterServlet(registry, onNewTruck)), "/api/register");
         context.addServlet(new ServletHolder(new ChatServlet(registry)),                 "/api/chat");
         context.addServlet(new ServletHolder(new TruckInfoServlet(registry)),            "/api/trucks/*");
+        context.addServlet(new ServletHolder(new MenuServlet(registry, clientFactory)),                  "/api/menu/*");
         context.addServlet(new ServletHolder(new OrderServlet(registry, clientFactory, pendingOrders)), "/api/order");
         context.addServlet(new ServletHolder(new PaymentServlet(clientFactory, pendingOrders)),         "/api/create-checkout");
         context.addServlet(new ServletHolder(new HealthServlet()),                       "/health");

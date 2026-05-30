@@ -426,20 +426,10 @@
 
   async function loadMenu() {
     try {
-      // Use the chat API to get menu data via /api/trucks info, or directly call Square
-      // We fetch the menu by triggering the get_menu tool indirectly
-      const res  = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          truck_id: truckId,
-          messages: [{ role: 'user', content: 'List the menu as JSON only. No prose.' }],
-          public_base_url: ngrokUrl() || location.origin,
-          _menuFetch: true
-        })
-      });
-      // Fall through to dummy load — actual menu comes from the MCP tool during chat
-      // For the order form, we show a free-text note if we can't load items directly
+      const res  = await fetch(`/api/menu/${truckId}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      menuItems  = data.items || [];
     } catch(e) {}
   }
 

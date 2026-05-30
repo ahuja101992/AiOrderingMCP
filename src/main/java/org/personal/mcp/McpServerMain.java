@@ -77,6 +77,14 @@ public class McpServerMain {
         // Shared pending-order store for OrderServlet ↔ PaymentServlet
         ConcurrentHashMap<String, OrderServlet.PendingOrder> pendingOrders = new ConcurrentHashMap<>();
 
+        // Shared OAuth state store for RegisterServlet ↔ OAuthCallbackServlet
+        ConcurrentHashMap<String, OAuthState> oauthStates = new ConcurrentHashMap<>();
+
+        // Order history tracking
+        String ordersPath = System.getenv("ORDERS_HISTORY_PATH");
+        if (ordersPath == null || ordersPath.isBlank()) ordersPath = "orders.json";
+        OrderHistory orderHistory = new OrderHistory(ordersPath);
+
         int port = parsePort();
         Server jetty = new Server(port);
 
@@ -105,12 +113,14 @@ public class McpServerMain {
         };
 
         // UI + API servlets (order matters: specific paths before wildcard)
-        context.addServlet(new ServletHolder(new RegisterServlet(registry, onNewTruck)), "/api/register");
+        context.addServlet(new ServletHolder(new RegisterServlet(registry, onNewTruck, oauthStates)), "/api/register");
+        context.addServlet(new ServletHolder(new OAuthCallbackServlet(oauthStates, registry, onNewTruck)), "/oauth-callback");
         context.addServlet(new ServletHolder(new ChatServlet(registry)),                 "/api/chat");
         context.addServlet(new ServletHolder(new TruckInfoServlet(registry)),            "/api/trucks/*");
         context.addServlet(new ServletHolder(new MenuServlet(registry, clientFactory)),                  "/api/menu/*");
         context.addServlet(new ServletHolder(new OrderServlet(registry, clientFactory, pendingOrders)), "/api/order");
-        context.addServlet(new ServletHolder(new PaymentServlet(clientFactory, pendingOrders)),         "/api/create-checkout");
+        context.addServlet(new ServletHolder(new PaymentServlet(clientFactory, pendingOrders, orderHistory)),         "/api/create-checkout");
+        context.addServlet(new ServletHolder(new OrderHistoryServlet(orderHistory)),     "/api/orders/*");
         context.addServlet(new ServletHolder(new HealthServlet()),                       "/health");
         context.addServlet(new ServletHolder(new StaticFileServlet()),                   "/*");
 

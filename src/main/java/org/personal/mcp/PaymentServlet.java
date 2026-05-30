@@ -28,6 +28,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -54,11 +58,14 @@ public class PaymentServlet extends HttpServlet {
 
     private final ConcurrentHashMap<String, OrderServlet.PendingOrder> pendingOrders;
     private final SquareClientFactory clientFactory;
+    private final OrderHistory orderHistory;
 
     public PaymentServlet(SquareClientFactory clientFactory,
-                          ConcurrentHashMap<String, OrderServlet.PendingOrder> pendingOrders) {
+                          ConcurrentHashMap<String, OrderServlet.PendingOrder> pendingOrders,
+                          OrderHistory orderHistory) {
         this.clientFactory = clientFactory;
         this.pendingOrders = pendingOrders;
+        this.orderHistory = orderHistory;
     }
 
     @Override
@@ -101,6 +108,18 @@ public class PaymentServlet extends HttpServlet {
             SquareFoodTruckClient squareClient = clientFactory.forTruck(truckId);
             SquareFoodTruckClient.PaymentLinkResult result = squareClient.createPaymentLink(
                     pending.customerName, pending.items, pending.pickupTime, redirectUrl);
+
+            // Convert LineItemRequest to Map format for history storage
+            List<Map<String, Object>> itemMaps = new ArrayList<>();
+            for (SquareFoodTruckClient.LineItemRequest item : pending.items) {
+                Map<String, Object> itemMap = new HashMap<>();
+                itemMap.put("variation_id", item.variationId);
+                itemMap.put("quantity", item.quantity);
+                itemMaps.add(itemMap);
+            }
+
+            // Record order in history
+            orderHistory.recordOrder(truckId, result.squareOrderId, pending.customerName, itemMaps, pending.pickupTime);
 
             // Remove the pending order now that the payment link is live
             pendingOrders.remove(orderId);

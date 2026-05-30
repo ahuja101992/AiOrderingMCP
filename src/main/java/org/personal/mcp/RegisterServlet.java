@@ -31,7 +31,9 @@ import org.slf4j.LoggerFactory;
 
 import java.io.*;
 import java.nio.file.*;
+import java.security.SecureRandom;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -58,15 +60,18 @@ public class RegisterServlet extends HttpServlet {
 
     private final TruckRegistry registry;
     private final NewTruckCallback newTruckCallback;
+    private final ConcurrentHashMap<String, OAuthState> oauthStates;
 
     /** Called when a new truck is successfully registered. */
     public interface NewTruckCallback {
         void onNewTruck(String truckId, TruckRegistry.TruckCredentials creds);
     }
 
-    public RegisterServlet(TruckRegistry registry, NewTruckCallback newTruckCallback) {
+    public RegisterServlet(TruckRegistry registry, NewTruckCallback newTruckCallback,
+                           ConcurrentHashMap<String, OAuthState> oauthStates) {
         this.registry = registry;
         this.newTruckCallback = newTruckCallback;
+        this.oauthStates = oauthStates;
     }
 
     @Override
@@ -86,8 +91,8 @@ public class RegisterServlet extends HttpServlet {
                 ? node.get("environment").asText() : "sandbox";
 
         // Basic validation
-        if (name == null || truckId == null || accessToken == null || locationId == null) {
-            error(resp, 400, "name, truck_id, access_token, and location_id are all required.");
+        if (name == null || truckId == null) {
+            error(resp, 400, "name and truck_id are required.");
             return;
         }
 
@@ -98,6 +103,19 @@ public class RegisterServlet extends HttpServlet {
             return;
         }
 
+        // Check if this is legacy token entry or OAuth flow request
+        if (accessToken != null && locationId != null) {
+            // Legacy path: direct token entry
+            handleDirectTokenEntry(resp, truckId, name, accessToken, locationId, environment);
+        } else {
+            // OAuth path: initiate Square OAuth flow
+            handleOAuthInitiation(resp, req, truckId, name, environment);
+        }
+    }
+
+    private void handleDirectTokenEntry(HttpServletResponse resp, String truckId, String name,
+                                        String accessToken, String locationId, String environment)
+            throws IOException {
         // Validate the Square token by making a real (but cheap) API call
         if (!validateSquareToken(accessToken, locationId, environment)) {
             error(resp, 422, "Could not verify Square credentials. Check your access token and location ID.");
@@ -119,19 +137,65 @@ public class RegisterServlet extends HttpServlet {
         registry.register(truckId, creds);
         newTruckCallback.onNewTruck(truckId, creds);
 
-        log.info("Registered new truck '{}' ({})", truckId, name);
+        log.info("Registered new truck '{}' (direct token) ({})", truckId, name);
 
         // Build response
-        String host = req.getScheme() + "://" + req.getHeader("host");
+        String host = "http://localhost:8080"; // Placeholder
         ObjectNode result = json.createObjectNode();
         result.put("truck_id",  truckId);
         result.put("name",      name);
         result.put("mcp_url",   host + "/truck/" + truckId + "/mcp");
         result.put("chat_url",  host + "/chat/" + truckId);
-        result.put("qr_data",   host + "/chat/" + truckId);
 
         resp.setStatus(200);
         resp.getWriter().write(json.writeValueAsString(result));
+    }
+
+    private void handleOAuthInitiation(HttpServletResponse resp, HttpServletRequest req,
+                                       String truckId, String name, String environment)
+            throws IOException {
+        String clientId = System.getenv("SQUARE_OAUTH_CLIENT_ID");
+        if (clientId == null || clientId.isBlank()) {
+            error(resp, 500, "OAuth is not configured on this server (SQUARE_OAUTH_CLIENT_ID missing).");
+            return;
+        }
+
+        // Generate state token for CSRF protection
+        String state = generateState();
+        oauthStates.put(state, new OAuthState(state, name, truckId, environment));
+
+        // Build Square OAuth authorize URL
+        String redirectUri = req.getScheme() + "://" + req.getHeader("host") + "/oauth-callback";
+        String scope = "MERCHANT_PROFILE_READ,ORDERS_READ,ORDERS_WRITE";
+        String authorizeUrl = "https://squareup.com/oauth2/authorize" +
+                "?client_id=" + clientId +
+                "&scope=" + java.net.URLEncoder.encode(scope, "UTF-8") +
+                "&redirect_uri=" + java.net.URLEncoder.encode(redirectUri, "UTF-8") +
+                "&state=" + state;
+
+        log.info("Initiating OAuth for truck '{}', redirecting to Square", truckId);
+
+        ObjectNode result = json.createObjectNode();
+        result.put("authorize_url", authorizeUrl);
+        result.put("state", state);
+
+        resp.setStatus(200);
+        resp.getWriter().write(json.writeValueAsString(result));
+    }
+
+    private static String generateState() {
+        SecureRandom random = new SecureRandom();
+        byte[] bytes = new byte[32];
+        random.nextBytes(bytes);
+        return bytesToHex(bytes);
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
     }
 
     private boolean validateSquareToken(String token, String locationId, String env) {

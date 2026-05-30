@@ -153,17 +153,30 @@ public class TruckRegistry {
     /** A truck's Square credentials. */
     public static final class TruckCredentials {
         public final String accessToken;
-        /** Null until OAuth is implemented; reserved for token refresh. */
         public final String refreshToken;
         public final String locationId;
         public final String environment;
+        /** Unix millis when accessToken expires (0 if unknown or never expires). */
+        public final long accessTokenExpiresAt;
 
         public TruckCredentials(String accessToken, String refreshToken,
                                 String locationId, String environment) {
-            this.accessToken  = Objects.requireNonNull(accessToken, "accessToken");
-            this.refreshToken = refreshToken;
-            this.locationId   = Objects.requireNonNull(locationId, "locationId");
-            this.environment  = environment == null ? "sandbox" : environment;
+            this(accessToken, refreshToken, locationId, environment, 0);
+        }
+
+        public TruckCredentials(String accessToken, String refreshToken,
+                                String locationId, String environment, long accessTokenExpiresAt) {
+            this.accessToken             = Objects.requireNonNull(accessToken, "accessToken");
+            this.refreshToken            = refreshToken;
+            this.locationId              = Objects.requireNonNull(locationId, "locationId");
+            this.environment             = environment == null ? "sandbox" : environment;
+            this.accessTokenExpiresAt    = accessTokenExpiresAt;
+        }
+
+        /** Check if token is expired or expiring soon (within 5 min). */
+        public boolean needsRefresh() {
+            if (refreshToken == null || accessTokenExpiresAt == 0) return false;
+            return System.currentTimeMillis() > (accessTokenExpiresAt - 5 * 60 * 1000);
         }
     }
 }

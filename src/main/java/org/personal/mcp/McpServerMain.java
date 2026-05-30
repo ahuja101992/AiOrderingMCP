@@ -39,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Entry point for the food truck MCP server (phase 1, HTTP transport).
@@ -73,6 +74,9 @@ public class McpServerMain {
 
         SquareClientFactory clientFactory = new SquareClientFactory(registry);
 
+        // Shared pending-order store for OrderServlet ↔ PaymentServlet
+        ConcurrentHashMap<String, OrderServlet.PendingOrder> pendingOrders = new ConcurrentHashMap<>();
+
         int port = parsePort();
         Server jetty = new Server(port);
 
@@ -104,6 +108,8 @@ public class McpServerMain {
         context.addServlet(new ServletHolder(new RegisterServlet(registry, onNewTruck)), "/api/register");
         context.addServlet(new ServletHolder(new ChatServlet(registry)),                 "/api/chat");
         context.addServlet(new ServletHolder(new TruckInfoServlet(registry)),            "/api/trucks/*");
+        context.addServlet(new ServletHolder(new OrderServlet(registry, clientFactory, pendingOrders)), "/api/order");
+        context.addServlet(new ServletHolder(new PaymentServlet(clientFactory, pendingOrders)),         "/api/create-checkout");
         context.addServlet(new ServletHolder(new HealthServlet()),                       "/health");
         context.addServlet(new ServletHolder(new StaticFileServlet()),                   "/*");
 
@@ -144,7 +150,7 @@ public class McpServerMain {
                 .build();
 
         McpSyncServer server = McpServer.sync(transport)
-                .serverInfo("foodtruck-" + truckId, "0.1.0")
+                .serverInfo("foodtruck-" + truckId, "0.2.0")
                 .capabilities(ServerCapabilities.builder()
                         .tools(true)
                         .logging()
@@ -152,7 +158,8 @@ public class McpServerMain {
                 .tools(
                         getMenuToolSpec(tools),
                         checkAllergenToolSpec(tools),
-                        getWaitTimeToolSpec(tools)
+                        getWaitTimeToolSpec(tools),
+                        createOrderToolSpec(tools)
                 )
                 .build();
 
@@ -247,6 +254,53 @@ public class McpServerMain {
         return McpServerFeatures.SyncToolSpecification.builder()
                 .tool(tool)
                 .callHandler((exchange, request) -> wrapJson(tools.getWaitTime()))
+                .build();
+    }
+
+    private static McpServerFeatures.SyncToolSpecification createOrderToolSpec(FoodTruckTools tools) {
+        McpSchema.JsonSchema itemSchema = new McpSchema.JsonSchema(
+                "object",
+                Map.of(
+                        "variation_id", Map.of("type", "string",
+                                "description", "The variation_id from get_menu for the item to order."),
+                        "quantity",     Map.of("type", "integer", "minimum", 1, "default", 1)
+                ),
+                List.of("variation_id"), false, null, null
+        );
+        McpSchema.JsonSchema schema = new McpSchema.JsonSchema(
+                "object",
+                Map.of(
+                        "customer_name", Map.of("type", "string",
+                                "description", "Customer name to display on the receipt and kitchen ticket."),
+                        "items",         Map.of("type", "array", "items", itemSchema,
+                                "description", "List of items to order. Use variation_id from get_menu."),
+                        "pickup_time",   Map.of("type", "string",
+                                "description", "ISO 8601 UTC timestamp for pickup, e.g. 2026-05-03T15:30:00Z. Must be ≥ 15 minutes from now.")
+                ),
+                List.of("customer_name", "items", "pickup_time"), false, null, null
+        );
+        Tool tool = Tool.builder()
+                .name("create_order")
+                .description(
+                        "Places a pickup order at the food truck and returns an order confirmation. " +
+                        "Call get_menu first to get variation_id values. " +
+                        "pickup_time must be ISO 8601 and at least 15 minutes in the future. " +
+                        "After placing the order, tell the customer their order_id and ask them " +
+                        "to proceed to payment via the chat UI."
+                )
+                .inputSchema(schema)
+                .build();
+        return McpServerFeatures.SyncToolSpecification.builder()
+                .tool(tool)
+                .callHandler((exchange, request) -> {
+                    Map<String, Object> a = request.arguments() != null ? request.arguments() : Map.of();
+                    String customerName = stringOrNull(a.get("customer_name"));
+                    String pickupTime   = stringOrNull(a.get("pickup_time"));
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> items = a.get("items") instanceof List
+                            ? (List<Map<String, Object>>) a.get("items") : List.of();
+                    return wrapJson(tools.createOrder(customerName, items, pickupTime));
+                })
                 .build();
     }
 

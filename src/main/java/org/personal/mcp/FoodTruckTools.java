@@ -18,9 +18,12 @@
 
 package org.personal.mcp;
 
+import org.personal.mcp.SquareFoodTruckClient.LineItemRequest;
 import org.personal.mcp.SquareFoodTruckClient.MenuItem;
+import org.personal.mcp.SquareFoodTruckClient.OrderResult;
 import org.personal.mcp.SquareFoodTruckClient.WaitEstimate;
 
+import java.time.Instant;
 import java.util.*;
 
 /**
@@ -54,6 +57,7 @@ public class FoodTruckTools {
         for (MenuItem item : items) {
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", item.id);
+            m.put("variation_id", item.variationId);
             m.put("name", item.name);
             m.put("description", item.description);
             m.put("price", item.formattedPrice());
@@ -104,6 +108,67 @@ public class FoodTruckTools {
                         "data is present, since cross-contamination isn't reflected here."
         );
         return result;
+    }
+
+    /**
+     * Creates a pickup order on Square for kitchen display.
+     * Used by the create_order MCP tool (AI-driven ordering flow).
+     *
+     * @param customerName display name on receipt
+     * @param items        list of maps with keys "variation_id" and "quantity"
+     * @param pickupTime   ISO 8601 timestamp, must be ≥ 15 minutes from now
+     */
+    public Map<String, Object> createOrder(String customerName,
+                                            List<Map<String, Object>> items,
+                                            String pickupTime) {
+        if (customerName == null || customerName.isBlank()) {
+            return Map.of("error", "customer_name is required.");
+        }
+        if (items == null || items.isEmpty()) {
+            return Map.of("error", "items must be a non-empty list.");
+        }
+        if (pickupTime == null || pickupTime.isBlank()) {
+            return Map.of("error", "pickup_time is required (ISO 8601).");
+        }
+
+        Instant pickup;
+        try {
+            pickup = Instant.parse(pickupTime);
+        } catch (Exception e) {
+            return Map.of("error", "pickup_time must be ISO 8601 (e.g. 2026-05-03T15:30:00Z).");
+        }
+        if (pickup.isBefore(Instant.now().plusSeconds(15 * 60))) {
+            return Map.of("error", "pickup_time must be at least 15 minutes in the future.");
+        }
+
+        List<LineItemRequest> lineItems = new ArrayList<>();
+        for (Map<String, Object> item : items) {
+            Object varId = item.get("variation_id");
+            Object qty   = item.get("quantity");
+            if (varId == null || varId.toString().isBlank()) {
+                return Map.of("error", "Each item must have a 'variation_id' from get_menu.");
+            }
+            int quantity = 1;
+            if (qty != null) {
+                try { quantity = Integer.parseInt(qty.toString()); }
+                catch (NumberFormatException e) {
+                    return Map.of("error", "quantity must be an integer.");
+                }
+            }
+            if (quantity < 1) return Map.of("error", "quantity must be at least 1.");
+            lineItems.add(new LineItemRequest(varId.toString(), quantity));
+        }
+
+        try {
+            OrderResult result = currentClient().createOrder(customerName, lineItems, pickupTime);
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("order_id",             result.orderId);
+            out.put("estimated_ready_time", result.pickupAt);
+            out.put("order_total",          result.totalAmount);
+            return out;
+        } catch (Exception e) {
+            return Map.of("error", "Order creation failed: " + e.getMessage());
+        }
     }
 
     public Map<String, Object> getWaitTime() {

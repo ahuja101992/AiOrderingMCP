@@ -11,7 +11,7 @@
     :root {
       --ink: #0d0d0b; --paper: #f0ebe0; --stone: #b8b0a0; --dim: #5a5550;
       --amber: #c8922a; --amber-l: #d4a84b; --rule: #252318; --surface: #141410;
-      --bubble-user: #2a2218; --bubble-ai: #141410;
+      --bubble-user: #2a2218; --bubble-ai: #141410; --green: #3db870;
     }
     html, body { height: 100%; background: var(--ink); color: var(--paper); font-family: 'Outfit', sans-serif; overflow: hidden; }
 
@@ -27,7 +27,7 @@
     .hinfo { flex: 1; min-width: 0; }
     .hname { font-family: 'Playfair Display', serif; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .hstatus { font-size: .72rem; color: var(--dim); display: flex; align-items: center; gap: 5px; margin-top: 1px; }
-    .sdot { width: 5px; height: 5px; background: #3db870; border-radius: 50%; }
+    .sdot { width: 5px; height: 5px; background: var(--green); border-radius: 50%; }
     .hbadge { font-size: .7rem; color: var(--dim); background: var(--surface); border: 1px solid var(--rule); padding: 3px 9px; border-radius: 20px; font-family: monospace; flex-shrink: 0; }
 
     /* ngrok banner */
@@ -40,6 +40,8 @@
     .chips::-webkit-scrollbar { display: none; }
     .chip { flex-shrink: 0; padding: 6px 13px; border: 1px solid var(--rule); border-radius: 20px; font-size: .76rem; color: var(--dim); cursor: pointer; background: var(--surface); transition: .15s; white-space: nowrap; }
     .chip:hover { border-color: var(--amber); color: var(--amber); }
+    .chip.order-chip { border-color: var(--amber); color: var(--amber); }
+    .chip.order-chip:hover { background: var(--amber); color: var(--ink); }
 
     /* messages */
     .msgs { flex: 1; overflow-y: auto; padding: 1.25rem; display: flex; flex-direction: column; gap: 14px; scroll-behavior: smooth; }
@@ -95,6 +97,81 @@
     .notfound h2 { font-family:'Playfair Display',serif; font-size:1.3rem; color:var(--stone); }
     .notfound p  { font-size:.84rem; color:var(--dim); line-height:1.6; }
     .notfound a  { color:var(--amber); font-size:.84rem; }
+
+    /* ── Order modal ─────────────────────────────── */
+    .modal-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 1000;
+      background: rgba(0,0,0,.7); backdrop-filter: blur(4px);
+      align-items: center; justify-content: center; padding: 1rem;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface); border: 1px solid var(--rule); border-radius: 14px;
+      padding: 1.75rem; width: 100%; max-width: 420px;
+      display: flex; flex-direction: column; gap: 1.1rem;
+      animation: modalIn .2s ease;
+    }
+    @keyframes modalIn { from { opacity:0; transform:translateY(16px); } to { opacity:1; transform:translateY(0); } }
+    .modal-title { font-family: 'Playfair Display', serif; font-size: 1.2rem; }
+    .modal-sub   { font-size: .82rem; color: var(--dim); margin-top: -.5rem; line-height: 1.5; }
+
+    .mfield { display: flex; flex-direction: column; gap: 5px; }
+    .mfield label { font-size: .78rem; color: var(--stone); font-weight: 500; }
+    .mfield input, .mfield select {
+      background: var(--ink); border: 1px solid var(--rule); color: var(--paper);
+      border-radius: 7px; padding: 10px 12px; font-size: .88rem; font-family: inherit; width: 100%;
+      transition: border-color .15s;
+    }
+    .mfield input:focus, .mfield select:focus { outline: none; border-color: var(--amber); }
+    .mfield input::placeholder { color: var(--dim); }
+
+    /* item rows */
+    .item-list { display: flex; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; }
+    .item-row {
+      display: flex; align-items: center; gap: 10px;
+      background: var(--ink); border: 1px solid var(--rule); border-radius: 8px; padding: 9px 12px;
+    }
+    .item-row .iname { flex: 1; font-size: .84rem; color: var(--stone); }
+    .item-row .iprice { font-size: .78rem; color: var(--dim); white-space: nowrap; }
+    .qty-ctrl { display: flex; align-items: center; gap: 6px; }
+    .qty-btn  { width: 26px; height: 26px; border-radius: 6px; border: 1px solid var(--rule); background: var(--surface); color: var(--stone); font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: .15s; }
+    .qty-btn:hover { border-color: var(--amber); color: var(--amber); }
+    .qty-val  { font-size: .84rem; min-width: 18px; text-align: center; color: var(--paper); }
+
+    .modal-err { font-size: .8rem; color: #e07070; display: none; }
+    .modal-err.show { display: block; }
+
+    .mbtn {
+      padding: 12px; border-radius: 8px; font-size: .9rem; font-weight: 500;
+      font-family: inherit; cursor: pointer; border: none; width: 100%; transition: .15s;
+    }
+    .mbtn-amber { background: var(--amber); color: var(--ink); }
+    .mbtn-amber:hover { background: var(--amber-l); }
+    .mbtn-amber:disabled { opacity: .35; cursor: not-allowed; }
+    .mbtn-ghost { background: transparent; border: 1px solid var(--rule); color: var(--stone); }
+    .mbtn-ghost:hover { border-color: var(--stone); color: var(--paper); }
+    .mbtn-green { background: var(--green); color: #0d0d0b; }
+    .mbtn-green:hover { background: #4dcf83; }
+    .mbtn-green:disabled { opacity: .35; cursor: not-allowed; }
+
+    /* confirmation banner */
+    .confirm-card {
+      background: #0d1f14; border: 1px solid #1e4a2c; border-radius: 10px;
+      padding: 1rem 1.1rem; display: flex; flex-direction: column; gap: .55rem;
+    }
+    .confirm-card .chead { font-size: .82rem; font-weight: 500; color: var(--green); }
+    .confirm-card .cid   { font-family: monospace; font-size: .75rem; color: var(--dim); }
+    .confirm-card .ctot  { font-size: .88rem; color: var(--stone); }
+
+    /* payment success */
+    .pay-success {
+      background: #0d1f14; border: 1px solid #1e4a2c; border-radius: 10px;
+      padding: 1.1rem; text-align: center; display: flex; flex-direction: column; gap: .5rem;
+      align-self: flex-start; max-width: 88%; margin-top: 4px;
+    }
+    .pay-success .ps-icon { font-size: 1.6rem; }
+    .pay-success .ps-head { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--green); }
+    .pay-success .ps-sub  { font-size: .8rem; color: var(--dim); line-height: 1.5; }
   </style>
 </head>
 <body>
@@ -119,7 +196,7 @@
     <div class="chip" onclick="send(this.textContent)">What's dairy-free?</div>
     <div class="chip" onclick="send(this.textContent)">How long is the wait?</div>
     <div class="chip" onclick="send(this.textContent)">Show me vegan options</div>
-    <div class="chip" onclick="send(this.textContent)">What do you recommend?</div>
+    <div class="chip order-chip" onclick="openOrderModal()">Order Now</div>
   </div>
 
   <div class="msgs" id="msgs">
@@ -139,14 +216,73 @@
   </div>
 </div>
 
+<!-- ── Order modal ────────────────────────────────── -->
+<div class="modal-backdrop" id="order-modal">
+  <div class="modal">
+    <div>
+      <div class="modal-title">Place an order</div>
+      <div class="modal-sub" id="modal-sub">Choose items and a pickup time.</div>
+    </div>
+
+    <!-- step 1: item selection -->
+    <div id="step-items">
+      <div class="mfield">
+        <label>Your name</label>
+        <input type="text" id="m-name" placeholder="e.g. Alice" autocomplete="name">
+      </div>
+      <div class="mfield" style="margin-top:.6rem">
+        <label>Items</label>
+        <div class="item-list" id="item-list">
+          <div style="font-size:.82rem;color:var(--dim);padding:.5rem 0">Loading menu…</div>
+        </div>
+      </div>
+      <div class="mfield" style="margin-top:.6rem">
+        <label>Pickup time</label>
+        <input type="datetime-local" id="m-pickup">
+      </div>
+      <div class="modal-err" id="m-err"></div>
+      <div style="display:flex;gap:8px;margin-top:.4rem">
+        <button class="mbtn mbtn-ghost" onclick="closeOrderModal()" style="flex:1">Cancel</button>
+        <button class="mbtn mbtn-amber" id="m-submit" onclick="submitOrder()" style="flex:2">Place Order</button>
+      </div>
+    </div>
+
+    <!-- step 2: order confirmation + payment -->
+    <div id="step-confirm" style="display:none">
+      <div class="confirm-card">
+        <div class="chead">Order confirmed</div>
+        <div class="cid" id="c-id"></div>
+        <div class="ctot" id="c-tot"></div>
+        <div style="font-size:.78rem;color:var(--dim)" id="c-time"></div>
+      </div>
+      <div class="modal-err" id="p-err"></div>
+      <div style="display:flex;gap:8px;margin-top:.2rem">
+        <button class="mbtn mbtn-ghost" onclick="closeOrderModal()" style="flex:1">Close</button>
+        <button class="mbtn mbtn-green" id="pay-btn" onclick="proceedToPayment()" style="flex:2">Proceed to Payment</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
   const truckId = location.pathname.split('/').filter(Boolean).pop();
-  let history = [];
-  let busy = false;
+  let history   = [];
+  let busy      = false;
+  let menuItems = [];      // [{id, variation_id, name, price, ...}]
+  let itemQtys  = {};      // variation_id → quantity
+  let pendingOrderId = null;
+  let pendingTotal   = null;
 
   async function init() {
     document.getElementById('hbadge').textContent = truckId;
     document.getElementById('hname').textContent  = truckId.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+
+    // Check payment redirect
+    const params = new URLSearchParams(location.search);
+    if (params.get('payment') === 'complete') {
+      setTimeout(() => showPaymentSuccess(params.get('square_order_id')), 400);
+      window.history.replaceState({}, '', location.pathname);
+    }
 
     try {
       const r = await fetch(`/api/trucks/${truckId}/info`);
@@ -159,6 +295,13 @@
       const saved = localStorage.getItem('ngrok_url');
       if (saved) document.getElementById('ngrok-input').value = saved;
     }
+
+    // Set default pickup time to now + 20 min
+    const dt = document.getElementById('m-pickup');
+    const def = new Date(Date.now() + 20 * 60000);
+    def.setSeconds(0, 0);
+    dt.value = def.toISOString().slice(0, 16);
+    dt.min    = new Date(Date.now() + 15 * 60000).toISOString().slice(0, 16);
   }
 
   function saveNgrok() {
@@ -184,6 +327,7 @@
     return location.origin;
   }
 
+  // ── Chat ──────────────────────────────────────────
   async function send(text) {
     if (busy) return;
     const inp  = document.getElementById('inp');
@@ -198,7 +342,7 @@
 
     const base = ngrokUrl();
     if ((location.hostname === 'localhost' || location.hostname === '127.0.0.1') && !base) {
-      addMsg('ai', '⚠️ Please enter your ngrok URL in the banner above so I can reach the menu data.');
+      addMsg('ai', 'Please enter your ngrok URL in the banner above so I can reach the menu data.');
       return;
     }
 
@@ -232,7 +376,7 @@
           if (raw === '[DONE]') break;
           try {
             const ev = JSON.parse(raw);
-            if (ev.error) { typing.remove(); addMsg('ai', `⚠️ ${ev.error}`); return; }
+            if (ev.error) { typing.remove(); addMsg('ai', `${ev.error}`); return; }
             if (ev.type === 'text' && ev.text) {
               if (!aiEl) { typing.remove(); aiEl = addMsg('ai', ''); }
               aiText += ev.text;
@@ -248,7 +392,7 @@
 
     } catch(e) {
       typing.remove();
-      addMsg('ai', `⚠️ Network error: ${e.message}`);
+      addMsg('ai', `Network error: ${e.message}`);
     } finally {
       busy = false;
       document.getElementById('send-btn').disabled = false;
@@ -256,6 +400,195 @@
     }
   }
 
+  // ── Order modal ───────────────────────────────────
+  async function openOrderModal() {
+    document.getElementById('step-items').style.display = '';
+    document.getElementById('step-confirm').style.display = 'none';
+    document.getElementById('m-err').textContent = '';
+    document.getElementById('m-err').classList.remove('show');
+    document.getElementById('modal-sub').textContent = 'Choose items and a pickup time.';
+    document.getElementById('order-modal').classList.add('open');
+
+    // Load menu if not yet loaded
+    if (menuItems.length === 0) {
+      await loadMenu();
+    }
+    renderItemList();
+  }
+
+  function closeOrderModal() {
+    document.getElementById('order-modal').classList.remove('open');
+  }
+
+  document.getElementById('order-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeOrderModal();
+  });
+
+  async function loadMenu() {
+    try {
+      // Use the chat API to get menu data via /api/trucks info, or directly call Square
+      // We fetch the menu by triggering the get_menu tool indirectly
+      const res  = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          truck_id: truckId,
+          messages: [{ role: 'user', content: 'List the menu as JSON only. No prose.' }],
+          public_base_url: ngrokUrl() || location.origin,
+          _menuFetch: true
+        })
+      });
+      // Fall through to dummy load — actual menu comes from the MCP tool during chat
+      // For the order form, we show a free-text note if we can't load items directly
+    } catch(e) {}
+  }
+
+  function renderItemList() {
+    const list = document.getElementById('item-list');
+    if (menuItems.length === 0) {
+      list.innerHTML = `<div style="font-size:.82rem;color:var(--dim);line-height:1.6">
+        Ask the AI what's on the menu first, then use the <strong style="color:var(--amber)">Order Now</strong> button.
+        <br><br>Or type item variation IDs directly if you have them.
+      </div>`;
+
+      // Add a manual input for advanced users
+      list.innerHTML += `
+        <div class="mfield" style="margin-top:.5rem">
+          <label>Variation ID (from menu)</label>
+          <input type="text" id="m-varid" placeholder="e.g. ABCDEF123456">
+          <input type="number" id="m-qty" placeholder="Qty" min="1" value="1" style="margin-top:5px;width:80px">
+        </div>`;
+      return;
+    }
+
+    // Render known menu items
+    list.innerHTML = menuItems.map(item => `
+      <div class="item-row" data-vid="${item.variation_id}">
+        <div class="iname">${item.name}</div>
+        <div class="iprice">${item.price || ''}</div>
+        <div class="qty-ctrl">
+          <button class="qty-btn" onclick="changeQty('${item.variation_id}', -1)">−</button>
+          <span class="qty-val" id="qty-${item.variation_id}">0</span>
+          <button class="qty-btn" onclick="changeQty('${item.variation_id}', 1)">+</button>
+        </div>
+      </div>`).join('');
+  }
+
+  function changeQty(variationId, delta) {
+    const cur = itemQtys[variationId] || 0;
+    const next = Math.max(0, cur + delta);
+    itemQtys[variationId] = next;
+    const el = document.getElementById('qty-' + variationId);
+    if (el) el.textContent = next;
+  }
+
+  async function submitOrder() {
+    const btn = document.getElementById('m-submit');
+    const err = document.getElementById('m-err');
+    err.classList.remove('show');
+
+    const customerName = document.getElementById('m-name').value.trim();
+    const pickupRaw    = document.getElementById('m-pickup').value;
+
+    if (!customerName) { showErr(err, 'Please enter your name.'); return; }
+    if (!pickupRaw)    { showErr(err, 'Please choose a pickup time.'); return; }
+
+    const pickupTime = new Date(pickupRaw).toISOString();
+    if (new Date(pickupTime) < new Date(Date.now() + 15 * 60000)) {
+      showErr(err, 'Pickup time must be at least 15 minutes from now.'); return;
+    }
+
+    // Build items array
+    let items = [];
+    if (menuItems.length > 0) {
+      for (const [vid, qty] of Object.entries(itemQtys)) {
+        if (qty > 0) items.push({ variation_id: vid, quantity: qty });
+      }
+    } else {
+      // Manual entry fallback
+      const vid = (document.getElementById('m-varid') || {}).value?.trim();
+      const qty = parseInt((document.getElementById('m-qty') || {}).value) || 1;
+      if (vid) items.push({ variation_id: vid, quantity: qty });
+    }
+
+    if (items.length === 0) { showErr(err, 'Add at least one item.'); return; }
+
+    btn.textContent = 'Placing order…'; btn.disabled = true;
+
+    try {
+      const res  = await fetch('/api/order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ truck_id: truckId, customer_name: customerName, items, pickup_time: pickupTime })
+      });
+      const data = await res.json();
+      if (!res.ok) { showErr(err, data.error || 'Order failed.'); return; }
+
+      pendingOrderId = data.order_id;
+      pendingTotal   = data.order_total;
+
+      // Show confirmation step
+      document.getElementById('step-items').style.display = 'none';
+      document.getElementById('step-confirm').style.display = '';
+      document.getElementById('c-id').textContent  = 'Order ID: ' + data.order_id.slice(0, 8) + '…';
+      document.getElementById('c-tot').textContent = 'Total: ' + data.order_total;
+      document.getElementById('c-time').textContent = 'Pickup: ' + new Date(data.estimated_ready_time).toLocaleTimeString();
+
+    } catch(e) {
+      showErr(err, 'Network error: ' + e.message);
+    } finally {
+      btn.textContent = 'Place Order'; btn.disabled = false;
+    }
+  }
+
+  async function proceedToPayment() {
+    const btn = document.getElementById('pay-btn');
+    const err = document.getElementById('p-err');
+    err.classList.remove('show');
+    btn.textContent = 'Creating payment link…'; btn.disabled = true;
+
+    try {
+      const res  = await fetch('/api/create-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ truck_id: truckId, order_id: pendingOrderId })
+      });
+      const data = await res.json();
+      if (!res.ok) { showErr(err, data.error || 'Could not create payment link.'); return; }
+
+      closeOrderModal();
+      // Open Square checkout in a new tab
+      window.open(data.checkout_url, '_blank');
+
+      // Show a message in the chat
+      document.getElementById('welcome').style.display = 'none';
+      addMsg('ai', 'A Square payment page has opened in a new tab. Complete your payment there — once done, you\'ll be redirected back here with your order confirmation.');
+
+    } catch(e) {
+      showErr(err, 'Network error: ' + e.message);
+    } finally {
+      btn.textContent = 'Proceed to Payment'; btn.disabled = false;
+    }
+  }
+
+  function showPaymentSuccess(squareOrderId) {
+    document.getElementById('welcome').style.display = 'none';
+    const msgs = document.getElementById('msgs');
+    const d = document.createElement('div');
+    d.className = 'pay-success';
+    d.innerHTML = `
+      <div class="ps-icon">✓</div>
+      <div class="ps-head">Payment complete</div>
+      <div class="ps-sub">Your order is being prepared. Estimated ready time: ~20 minutes.<br>
+      ${squareOrderId ? '<span style="font-family:monospace;font-size:.72rem;color:var(--dim)">Ref: ' + squareOrderId.slice(0, 8) + '…</span>' : ''}</div>`;
+    msgs.appendChild(d);
+    scrollBottom();
+    history.push({ role: 'assistant', content: 'Payment complete — your order is being prepared!' });
+  }
+
+  function showErr(el, msg) { el.textContent = msg; el.classList.add('show'); }
+
+  // ── DOM helpers ───────────────────────────────────
   function addMsg(role, text) {
     const msgs = document.getElementById('msgs');
     const d = document.createElement('div');

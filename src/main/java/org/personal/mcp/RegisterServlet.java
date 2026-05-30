@@ -104,16 +104,18 @@ public class RegisterServlet extends HttpServlet {
             return;
         }
 
-        // Write to trucks.json
+        // Write to trucks.json (encrypt token if key is available)
         String configPath = System.getenv("TRUCKS_CONFIG_PATH");
         if (configPath == null || configPath.isBlank()) {
             configPath = "trucks.json";
         }
-        writeTrucksJson(Path.of(configPath), truckId, name, accessToken, locationId, environment);
+        TokenEncryption encryption = TokenEncryption.fromEnv();
+        String storedToken = (encryption != null) ? encryption.encrypt(accessToken) : accessToken;
+        writeTrucksJson(Path.of(configPath), truckId, name, storedToken, locationId, environment);
 
-        // Register live
+        // Register live with the decrypted token so the Square client can use it
         TruckRegistry.TruckCredentials creds =
-                new TruckRegistry.TruckCredentials(accessToken, locationId, environment);
+                new TruckRegistry.TruckCredentials(accessToken, null, locationId, environment);
         registry.register(truckId, creds);
         newTruckCallback.onNewTruck(truckId, creds);
 

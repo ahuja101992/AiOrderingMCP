@@ -102,7 +102,7 @@ public class TruckRegistry {
             String envName = Optional.ofNullable(System.getenv("SQUARE_ENV")).orElse("sandbox");
             log.info("Loading single-truck demo registry from env vars (truck_id=demo)");
             return new TruckRegistry(Map.of(
-                    "demo", new TruckCredentials(token, locationId, envName)
+                    "demo", new TruckCredentials(token, null, locationId, envName)
             ));
         }
 
@@ -114,6 +114,7 @@ public class TruckRegistry {
 
     static TruckRegistry loadFromJsonFile(Path path) {
         log.info("Loading truck registry from {}", path);
+        TokenEncryption encryption = TokenEncryption.fromEnv();
         ObjectMapper mapper = new ObjectMapper();
         Map<String, TruckCredentials> result = new HashMap<>();
         try (InputStream in = Files.newInputStream(path)) {
@@ -126,10 +127,14 @@ public class TruckRegistry {
                 Map.Entry<String, JsonNode> entry = it.next();
                 String truckId = entry.getKey();
                 JsonNode v = entry.getValue();
-                String token = textOrThrow(v, "access_token", truckId);
+                String rawToken = textOrThrow(v, "access_token", truckId);
+                String accessToken = (encryption != null) ? encryption.decrypt(rawToken) : rawToken;
+                String rawRefresh = v.hasNonNull("refresh_token") ? v.get("refresh_token").asText() : null;
+                String refreshToken = (rawRefresh != null && encryption != null)
+                        ? encryption.decrypt(rawRefresh) : rawRefresh;
                 String loc = textOrThrow(v, "location_id", truckId);
                 String env = v.hasNonNull("environment") ? v.get("environment").asText() : "sandbox";
-                result.put(truckId, new TruckCredentials(token, loc, env));
+                result.put(truckId, new TruckCredentials(accessToken, refreshToken, loc, env));
             }
         } catch (IOException e) {
             throw new IllegalStateException("Failed to load truck registry: " + e.getMessage(), e);
@@ -145,16 +150,20 @@ public class TruckRegistry {
         return node.get(field).asText();
     }
 
-    /** A truck's Square credentials. Plain record. */
+    /** A truck's Square credentials. */
     public static final class TruckCredentials {
         public final String accessToken;
+        /** Null until OAuth is implemented; reserved for token refresh. */
+        public final String refreshToken;
         public final String locationId;
         public final String environment;
 
-        public TruckCredentials(String accessToken, String locationId, String environment) {
-            this.accessToken = Objects.requireNonNull(accessToken, "accessToken");
-            this.locationId = Objects.requireNonNull(locationId, "locationId");
-            this.environment = environment == null ? "sandbox" : environment;
+        public TruckCredentials(String accessToken, String refreshToken,
+                                String locationId, String environment) {
+            this.accessToken  = Objects.requireNonNull(accessToken, "accessToken");
+            this.refreshToken = refreshToken;
+            this.locationId   = Objects.requireNonNull(locationId, "locationId");
+            this.environment  = environment == null ? "sandbox" : environment;
         }
     }
 }

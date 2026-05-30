@@ -21,6 +21,7 @@ package org.personal.mcp;
 import com.squareup.square.Environment;
 import com.squareup.square.SquareClient;
 import com.squareup.square.api.CatalogApi;
+import com.squareup.square.api.CheckoutApi;
 import com.squareup.square.api.OrdersApi;
 import com.squareup.square.models.*;
 import org.slf4j.Logger;
@@ -153,6 +154,139 @@ public class SquareFoodTruckClient {
             log.error("wait time estimation failed", e);
             throw new RuntimeException("Failed to estimate wait time: " + e.getMessage(), e);
         }
+    }
+
+    /**
+     * Creates a Square order with PICKUP fulfillment for the MCP create_order tool.
+     * Line items are identified by catalog variation ID.
+     *
+     * @param customerName display name on the receipt/kitchen ticket
+     * @param items        list of {variationId, quantity} pairs
+     * @param pickupAt     ISO 8601 timestamp, e.g. 2026-05-03T15:30:00Z
+     */
+    public OrderResult createOrder(String customerName, List<LineItemRequest> items, String pickupAt) {
+        try {
+            List<OrderLineItem> lineItems = new ArrayList<>();
+            for (LineItemRequest req : items) {
+                lineItems.add(new OrderLineItem.Builder(String.valueOf(req.quantity))
+                        .catalogObjectId(req.variationId)
+                        .build());
+            }
+
+            FulfillmentPickupDetails pickupDetails = new FulfillmentPickupDetails.Builder()
+                    .recipient(new FulfillmentRecipient.Builder()
+                            .displayName(customerName)
+                            .build())
+                    .scheduleType("SCHEDULED")
+                    .pickupAt(pickupAt)
+                    .prepTimeDuration("PT10M")
+                    .build();
+
+            Fulfillment fulfillment = new Fulfillment.Builder()
+                    .type("PICKUP")
+                    .state("PROPOSED")
+                    .pickupDetails(pickupDetails)
+                    .build();
+
+            Order order = new Order.Builder(locationId)
+                    .lineItems(lineItems)
+                    .fulfillments(List.of(fulfillment))
+                    .build();
+
+            CreateOrderRequest request = new CreateOrderRequest.Builder()
+                    .order(order)
+                    .idempotencyKey(UUID.randomUUID().toString())
+                    .build();
+
+            CreateOrderResponse response = client.getOrdersApi().createOrder(request);
+
+            if (response.getErrors() != null && !response.getErrors().isEmpty()) {
+                throw new RuntimeException("Square order creation failed: " + response.getErrors());
+            }
+
+            Order created = response.getOrder();
+            String total = formatMoney(created.getTotalMoney());
+            return new OrderResult(created.getId(), pickupAt, total);
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("createOrder failed", e);
+            throw new RuntimeException("Failed to create order: " + e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Creates a Square payment link that atomically creates the order.
+     * Returns the hosted checkout URL.
+     *
+     * @param customerName  display name on receipt
+     * @param items         variation IDs and quantities
+     * @param pickupAt      ISO 8601 pickup timestamp
+     * @param redirectUrl   URL Square redirects to after payment (append ?order_id=...)
+     * @return PaymentLinkResult with checkout URL and Square-assigned order ID
+     */
+    public PaymentLinkResult createPaymentLink(String customerName, List<LineItemRequest> items,
+                                               String pickupAt, String redirectUrl) {
+        try {
+            List<OrderLineItem> lineItems = new ArrayList<>();
+            for (LineItemRequest req : items) {
+                lineItems.add(new OrderLineItem.Builder(String.valueOf(req.quantity))
+                        .catalogObjectId(req.variationId)
+                        .build());
+            }
+
+            FulfillmentPickupDetails pickupDetails = new FulfillmentPickupDetails.Builder()
+                    .recipient(new FulfillmentRecipient.Builder()
+                            .displayName(customerName)
+                            .build())
+                    .scheduleType("SCHEDULED")
+                    .pickupAt(pickupAt)
+                    .prepTimeDuration("PT10M")
+                    .build();
+
+            Fulfillment fulfillment = new Fulfillment.Builder()
+                    .type("PICKUP")
+                    .state("PROPOSED")
+                    .pickupDetails(pickupDetails)
+                    .build();
+
+            Order order = new Order.Builder(locationId)
+                    .lineItems(lineItems)
+                    .fulfillments(List.of(fulfillment))
+                    .build();
+
+            CheckoutOptions checkoutOptions = new CheckoutOptions.Builder()
+                    .redirectUrl(redirectUrl)
+                    .build();
+
+            CreatePaymentLinkRequest request = new CreatePaymentLinkRequest.Builder()
+                    .idempotencyKey(UUID.randomUUID().toString())
+                    .order(order)
+                    .checkoutOptions(checkoutOptions)
+                    .build();
+
+            CreatePaymentLinkResponse response = client.getCheckoutApi().createPaymentLink(request);
+
+            if (response.getErrors() != null && !response.getErrors().isEmpty()) {
+                throw new RuntimeException("Square payment link creation failed: " + response.getErrors());
+            }
+
+            PaymentLink link = response.getPaymentLink();
+            return new PaymentLinkResult(link.getUrl(), link.getOrderId());
+
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("createPaymentLink failed", e);
+            throw new RuntimeException("Failed to create payment link: " + e.getMessage(), e);
+        }
+    }
+
+    private static String formatMoney(Money money) {
+        if (money == null || money.getAmount() == null) return "0.00 USD";
+        String currency = money.getCurrency() != null ? money.getCurrency() : "USD";
+        return String.format("%.2f %s", money.getAmount() / 100.0, currency);
     }
 
     // ---------- internals ----------
@@ -302,6 +436,38 @@ public class SquareFoodTruckClient {
             if (priceMoney == null || priceMoney.getAmount() == null) return null;
             String currency = priceMoney.getCurrency() != null ? priceMoney.getCurrency() : "USD";
             return String.format("%.2f %s", priceMoney.getAmount() / 100.0, currency);
+        }
+    }
+
+    public static final class OrderResult {
+        public final String orderId;
+        public final String pickupAt;
+        public final String totalAmount;
+
+        OrderResult(String orderId, String pickupAt, String totalAmount) {
+            this.orderId     = orderId;
+            this.pickupAt    = pickupAt;
+            this.totalAmount = totalAmount;
+        }
+    }
+
+    public static final class PaymentLinkResult {
+        public final String checkoutUrl;
+        public final String squareOrderId;
+
+        PaymentLinkResult(String checkoutUrl, String squareOrderId) {
+            this.checkoutUrl    = checkoutUrl;
+            this.squareOrderId  = squareOrderId;
+        }
+    }
+
+    public static final class LineItemRequest {
+        public final String variationId;
+        public final int    quantity;
+
+        public LineItemRequest(String variationId, int quantity) {
+            this.variationId = variationId;
+            this.quantity    = quantity;
         }
     }
 
